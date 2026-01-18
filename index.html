@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Mappa Poligoni Free</title>
+    <title>Mappa Territori Bellaria</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         #map { height: 100vh; width: 100%; margin: 0; }
@@ -15,33 +15,29 @@
 </head>
 <body>
 
-    <div class="info-panel" id="ui-panel">
-        <b>Condivisione Poligoni</b><br>
-        <small>Clicca su un'area per ottenere il link</small>
+    <div class="info-panel">
+        <b>Mappa Territori</b><br>
+        <small>Clicca su un'area per il link</small>
     </div>
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // 1. Inizializza la mappa
-        const map = L.map('map').setView([41.9028, 12.4964], 6);
+        // Inizializziamo la mappa (la posizione iniziale verrà sovrascritta dallo zoom automatico)
+        const map = L.map('map').setView([0, 0], 2);
 
-        // 2. Aggiungi lo sfondo (OpenStreetMap - GRATIS)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        // 3. Leggi il parametro "area" dall'URL
         const urlParams = new URLSearchParams(window.location.search);
         const areaCercata = urlParams.get('area');
 
-        // 4. Carica il tuo file Prova.json
         fetch('Prova.json')
             .then(response => response.json())
             .then(data => {
                 const geoJsonLayer = L.geoJSON(data, {
                     style: function(feature) {
-                        // Se è l'area cercata nell'URL, falla rossa, altrimenti blu
                         const isSelected = (areaCercata && feature.properties.name === areaCercata);
                         return {
                             color: isSelected ? "red" : "#3388ff",
@@ -51,28 +47,37 @@
                     },
                     onEachFeature: function (feature, layer) {
                         const nome = feature.properties.name || "Area senza nome";
-                        
-                        // Popup al click
                         layer.bindPopup(`
                             <b>${nome}</b><br>
-                            <button onclick="copiaLink('${nome}')">Copia link condivisione</button>
+                            <button onclick="copiaLink('${nome}')">Copia link area</button>
                         `);
 
-                        // Se questo è il poligono nel link, facci lo zoom sopra
+                        // Se è l'area del link, facciamo zoom specifico qui
                         if (areaCercata && feature.properties.name === areaCercata) {
-                            map.fitBounds(layer.getBounds());
-                            layer.openPopup();
+                            setTimeout(() => {
+                                map.fitBounds(layer.getBounds(), { padding: [50, 50] });
+                                layer.openPopup();
+                            }, 500);
                         }
                     }
                 }).addTo(map);
-            })
-            .catch(err => console.error("Errore caricamento JSON:", err));
 
-        // Funzione per generare il link di condivisione
+                // ZOOM AUTOMATICO GENERALE
+                // Se NON c'è un'area specifica nel link, inquadra tutti i poligoni insieme
+                if (!areaCercata) {
+                    const bounds = geoJsonLayer.getBounds();
+                    if (bounds.isValid()) {
+                        map.fitBounds(bounds, { padding: [30, 30] });
+                    }
+                }
+            })
+            .catch(err => console.error("Errore:", err));
+
         function copiaLink(nomeArea) {
             const link = window.location.origin + window.location.pathname + "?area=" + encodeURIComponent(nomeArea);
-            navigator.clipboard.writeText(link);
-            alert("Link copiato negli appunti!");
+            navigator.clipboard.writeText(link).then(() => {
+                alert("Link copiato! Invia questo per mostrare l'area: " + nomeArea);
+            });
         }
     </script>
 </body>
