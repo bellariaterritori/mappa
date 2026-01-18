@@ -1,44 +1,79 @@
 <!DOCTYPE html>
-<html>
+<html lang="it">
 <head>
-  <meta charset="utf-8">
-  <title>Mappa poligono</title>
-  <style>
-    html, body { height: 100%; margin: 0; }
-    #map { height: 100%; width: 100%; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Mappa Poligoni Free</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { height: 100vh; width: 100%; margin: 0; }
+        body { margin: 0; font-family: sans-serif; }
+        .info-panel {
+            position: absolute; top: 10px; left: 50px; z-index: 1000;
+            background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+    </style>
 </head>
 <body>
 
-<div id="map"></div>
+    <div class="info-panel" id="ui-panel">
+        <b>Condivisione Poligoni</b><br>
+        <small>Clicca su un'area per ottenere il link</small>
+    </div>
+    <div id="map"></div>
 
-<script>
-function initMap() {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 1. Inizializza la mappa
+        const map = L.map('map').setView([41.9028, 12.4964], 6);
 
-  // legge ?zona=prova
-  const zona = new URLSearchParams(window.location.search).get("zona");
-  if (!zona) {
-    alert("Nessun poligono specificato nel link");
-    return;
-  }
+        // 2. Aggiungi lo sfondo (OpenStreetMap - GRATIS)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
 
-  const map = new google.maps.Map(document.getElementById("map"), {
-    mapTypeId: "satellite"
-  });
+        // 3. Leggi il parametro "area" dall'URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const areaCercata = urlParams.get('area');
 
-  map.data.loadGeoJson(zona + ".geojson");
+        // 4. Carica il tuo file Prova.json
+        fetch('Prova.json')
+            .then(response => response.json())
+            .then(data => {
+                const geoJsonLayer = L.geoJSON(data, {
+                    style: function(feature) {
+                        // Se è l'area cercata nell'URL, falla rossa, altrimenti blu
+                        const isSelected = (areaCercata && feature.properties.name === areaCercata);
+                        return {
+                            color: isSelected ? "red" : "#3388ff",
+                            weight: isSelected ? 4 : 2,
+                            fillOpacity: isSelected ? 0.6 : 0.2
+                        };
+                    },
+                    onEachFeature: function (feature, layer) {
+                        const nome = feature.properties.name || "Area senza nome";
+                        
+                        // Popup al click
+                        layer.bindPopup(`
+                            <b>${nome}</b><br>
+                            <button onclick="copiaLink('${nome}')">Copia link condivisione</button>
+                        `);
 
-  map.data.setStyle({
-    fillColor: "#FF0000",
-    fillOpacity: 0.4,
-    strokeWeight: 2
-  });
-}
-</script>
+                        // Se questo è il poligono nel link, facci lo zoom sopra
+                        if (areaCercata && feature.properties.name === areaCercata) {
+                            map.fitBounds(layer.getBounds());
+                            layer.openPopup();
+                        }
+                    }
+                }).addTo(map);
+            })
+            .catch(err => console.error("Errore caricamento JSON:", err));
 
-<script async
-  src="https://maps.googleapis.com/maps/api/js?key=LA_TUA_API_KEY&callback=initMap">
-</script>
-
+        // Funzione per generare il link di condivisione
+        function copiaLink(nomeArea) {
+            const link = window.location.origin + window.location.pathname + "?area=" + encodeURIComponent(nomeArea);
+            navigator.clipboard.writeText(link);
+            alert("Link copiato negli appunti!");
+        }
+    </script>
 </body>
 </html>
